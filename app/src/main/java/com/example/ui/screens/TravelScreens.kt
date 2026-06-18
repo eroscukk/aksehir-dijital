@@ -61,6 +61,7 @@ fun MainDashboard(viewModel: TravelStateViewModel) {
     val lang = viewModel.currentLanguage
     val places = viewModel.repository.places
     val activeNotif = viewModel.activeGeofenceNotification
+    val favoritePlacesList by viewModel.favoritePlacesState.collectAsState(initial = emptyList())
 
     LazyColumn(
         modifier = Modifier
@@ -342,11 +343,29 @@ fun MainDashboard(viewModel: TravelStateViewModel) {
                 }
             },
             title = {
-                Text(
-                    text = if (lang == AppLanguage.TR) activeDetailPlace.nameTr else activeDetailPlace.nameEn,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                val isFav = favoritePlacesList.any { it.placeId == activeDetailPlace.id }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (lang == AppLanguage.TR) activeDetailPlace.nameTr else activeDetailPlace.nameEn,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(
+                        onClick = { viewModel.togglePlaceFavorite(activeDetailPlace) },
+                        modifier = Modifier.testTag("favorite_place_toggle_btn")
+                    ) {
+                        Icon(
+                            imageVector = if (isFav) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = "Toggle Favorite",
+                            tint = if (isFav) Color.Red else MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             },
             text = {
                 Column(
@@ -679,6 +698,122 @@ fun InteractiveMapScreen(viewModel: TravelStateViewModel) {
             )
         }
 
+        // POSTGRESQL & POSTGIS MODE CONTROLLER
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("postgis_controller_card"),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (viewModel.postGisModeActive) 
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) 
+                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ),
+                border = BorderStroke(
+                    1.dp, 
+                    if (viewModel.postGisModeActive) MaterialTheme.colorScheme.primary else Color.Transparent
+                )
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "🐘",
+                                fontSize = 20.sp,
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = Loc.t(lang, "PostgreSQL & PostGIS Uzamsal Motoru", "PostgreSQL & PostGIS Spatial Engine"),
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = Loc.t(lang, "Mekanları PostGIS fonksiyonları ile birleştirin", "Connect spots with PostGIS formulas"),
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        
+                        Switch(
+                            checked = viewModel.postGisModeActive,
+                            onCheckedChange = { 
+                                viewModel.postGisModeActive = it 
+                                viewModel.updatePostGisOutputs()
+                            },
+                            modifier = Modifier.testTag("postgis_mode_switch")
+                        )
+                    }
+
+                    if (viewModel.postGisModeActive) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Text(
+                            text = Loc.t(lang, "Aktif Coğrafi Analiz Fonksiyonları (Seçin):", "Active Spatial Functions (Toggle):"),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        
+                        Spacer(modifier = Modifier.height(6.dp))
+                        
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            FilterChip(
+                                selected = viewModel.postGisUseLine,
+                                onClick = { viewModel.togglePostGisOption("line") },
+                                label = { Text("ST_MakeLine", fontSize = 11.sp) },
+                                leadingIcon = if (viewModel.postGisUseLine) {
+                                    { Icon(Icons.Default.Route, contentDescription = null, modifier = Modifier.size(12.dp)) }
+                                } else null,
+                                modifier = Modifier.testTag("chip_st_makeline")
+                            )
+
+                            FilterChip(
+                                selected = viewModel.postGisUseCentroid,
+                                onClick = { viewModel.togglePostGisOption("centroid") },
+                                label = { Text("ST_Centroid", fontSize = 11.sp) },
+                                leadingIcon = if (viewModel.postGisUseCentroid) {
+                                    { Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(12.dp)) }
+                                } else null,
+                                modifier = Modifier.testTag("chip_st_centroid")
+                            )
+
+                            FilterChip(
+                                selected = viewModel.postGisUseConvexHull,
+                                onClick = { viewModel.togglePostGisOption("convexhull") },
+                                label = { Text("ST_ConvexHull", fontSize = 11.sp) },
+                                leadingIcon = if (viewModel.postGisUseConvexHull) {
+                                    { Icon(Icons.Default.Architecture, contentDescription = null, modifier = Modifier.size(12.dp)) }
+                                } else null,
+                                modifier = Modifier.testTag("chip_st_convexhull")
+                            )
+
+                            FilterChip(
+                                selected = viewModel.postGisUseBuffer,
+                                onClick = { viewModel.togglePostGisOption("buffer") },
+                                label = { Text("ST_Buffer", fontSize = 11.sp) },
+                                leadingIcon = if (viewModel.postGisUseBuffer) {
+                                    { Icon(Icons.Default.Lens, contentDescription = null, modifier = Modifier.size(12.dp)) }
+                                } else null,
+                                modifier = Modifier.testTag("chip_st_buffer")
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // CUSTOM INTERACTIVE CANVAS MAP REPRESENTATION
         item {
             Card(
@@ -706,25 +841,83 @@ fun InteractiveMapScreen(viewModel: TravelStateViewModel) {
                             drawLine(color = gridPaint, start = androidx.compose.ui.geometry.Offset(0f, y.toFloat()), end = androidx.compose.ui.geometry.Offset(size.width, y.toFloat()), strokeWidth = 1f)
                         }
 
-                        // Draw lines between current built route points
-                        if (viewModel.mapPoints.size >= 2) {
+                        // Local coordinate projections
+                        val toX = { lon: Double -> ((lon - 31.40) * size.width / (31.49 - 31.40)).toFloat() }
+                        val toY = { lat: Double -> (size.height - ((lat - 38.33) * size.height / (38.50 - 38.33))).toFloat() }
+
+                        // 1. Draw ST_Buffer zones around active spots
+                        if (viewModel.postGisModeActive && viewModel.postGisUseBuffer) {
+                            viewModel.mapPoints.forEach { pt ->
+                                drawCircle(
+                                    color = Color(0x1F2196F3),
+                                    radius = 55f,
+                                    center = androidx.compose.ui.geometry.Offset(toX(pt.longitude), toY(pt.latitude))
+                                )
+                                drawCircle(
+                                    color = Color(0x662196F3),
+                                    radius = 55f,
+                                    center = androidx.compose.ui.geometry.Offset(toX(pt.longitude), toY(pt.latitude)),
+                                    style = Stroke(width = 1.5f)
+                                )
+                            }
+                        }
+
+                        // 2. Draw ST_ConvexHull shaded area
+                        if (viewModel.postGisModeActive && viewModel.postGisUseConvexHull && viewModel.mapPoints.size >= 3) {
+                            val hullPoints = viewModel.getConvexHullPoints()
+                            if (hullPoints.size >= 3) {
+                                val path = Path().apply {
+                                    val first = hullPoints.first()
+                                    moveTo(toX(first.longitude), toY(first.latitude))
+                                    for (i in 1 until hullPoints.size) {
+                                        val pt = hullPoints[i]
+                                        lineTo(toX(pt.longitude), toY(pt.latitude))
+                                    }
+                                    close()
+                                }
+                                drawPath(
+                                    path = path,
+                                    color = Color(0x1F4CAF50)
+                                )
+                                drawPath(
+                                    path = path,
+                                    color = Color(0xFF4CAF50),
+                                    style = Stroke(width = 2.5f)
+                                )
+                            }
+                        }
+
+                        // 3. Draw ST_MakeLine connections (optimal line)
+                        val drawLinesEnabled = !viewModel.postGisModeActive || viewModel.postGisUseLine
+                        if (drawLinesEnabled && viewModel.mapPoints.size >= 2) {
                             val routeColor = Color(0xFFF57C00)
                             for (i in 0 until viewModel.mapPoints.size - 1) {
                                 val p1 = viewModel.mapPoints[i]
                                 val p2 = viewModel.mapPoints[i + 1]
 
-                                // Calculate positions
-                                val x1 = (p1.longitude - 31.40) * size.width / (31.49 - 31.40)
-                                val y1 = size.height - ((p1.latitude - 38.33) * size.height / (38.50 - 38.33))
-
-                                val x2 = (p2.longitude - 31.40) * size.width / (31.49 - 31.40)
-                                val y2 = size.height - ((p2.latitude - 38.33) * size.height / (38.50 - 38.33))
-
                                 drawLine(
                                     color = routeColor,
-                                    start = androidx.compose.ui.geometry.Offset(x1.toFloat(), y1.toFloat()),
-                                    end = androidx.compose.ui.geometry.Offset(x2.toFloat(), y2.toFloat()),
+                                    start = androidx.compose.ui.geometry.Offset(toX(p1.longitude), toY(p1.latitude)),
+                                    end = androidx.compose.ui.geometry.Offset(toX(p2.longitude), toY(p2.latitude)),
                                     strokeWidth = 6f
+                                )
+                            }
+                        }
+
+                        // 4. Draw ST_Centroid point
+                        if (viewModel.postGisModeActive && viewModel.postGisUseCentroid) {
+                            viewModel.getCentroidPoint()?.let { centroid ->
+                                val cx = toX(centroid.longitude)
+                                val cy = toY(centroid.latitude)
+                                drawCircle(
+                                    color = Color(0x44FFC107),
+                                    radius = 28f,
+                                    center = androidx.compose.ui.geometry.Offset(cx, cy)
+                                )
+                                drawCircle(
+                                    color = Color(0xFFFF9800),
+                                    radius = 12f,
+                                    center = androidx.compose.ui.geometry.Offset(cx, cy)
                                 )
                             }
                         }
@@ -762,6 +955,34 @@ fun InteractiveMapScreen(viewModel: TravelStateViewModel) {
                         }
                     }
 
+                    // 5. Place Centroid Pin overlay
+                    if (viewModel.postGisModeActive && viewModel.postGisUseCentroid) {
+                        viewModel.getCentroidPoint()?.let { centroid ->
+                            val xOffset = ((centroid.longitude - 31.40) / (31.49 - 31.40)) * 260
+                            val yOffset = 210 - (((centroid.latitude - 38.33) / (38.50 - 38.33)) * 200)
+
+                            val xDp = xOffset.coerceIn(10.0, 280.0).dp
+                            val yDp = yOffset.coerceIn(10.0, 240.0).dp
+
+                            Box(
+                                modifier = Modifier
+                                    .offset(x = xDp, y = yDp)
+                                    .size(34.dp)
+                                    .clip(RoundedCornerShape(17.dp))
+                                    .background(Color(0xFFFFC107))
+                                    .testTag("centroid_overlay_pin"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Star,
+                                    contentDescription = "ST_Centroid Point",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+
                     // Bottom Legend Info
                     Row(
                         modifier = Modifier
@@ -774,6 +995,169 @@ fun InteractiveMapScreen(viewModel: TravelStateViewModel) {
                         Box(modifier = Modifier.size(8.dp).background(Color(0xFFF57C00), RoundedCornerShape(4.dp)))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(text = "Seçilen Rota Bağı", color = Color.White, fontSize = 8.sp)
+                    }
+                }
+            }
+        }
+
+        // PostgreSQL & PostGIS ENGINE TERMINAL CONSOLE
+        if (viewModel.postGisModeActive) {
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("postgis_terminal_card"),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)), // Deep Dark Terminal
+                    border = BorderStroke(1.dp, Color(0xFF334155))
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .background(Color(0xFFFF9800), RoundedCornerShape(5.dp))
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = Loc.t(lang, "POSTGRESQL / POSTGIS KONSOLU", "POSTGRESQL / POSTGIS CONSOLE"),
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp,
+                                    color = Color(0xFFE2E8F0)
+                                )
+                            }
+                            
+                            Text(
+                                text = "pgAdmin v8.4",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 10.sp,
+                                color = Color(0xFF64748B)
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(10.dp))
+                        HorizontalDivider(color = Color(0xFF334155))
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Dynamic PostgreSQL Query block
+                        Text(
+                            text = Loc.t(lang, "Dinamik SQL Sorgusu (Yol & Haritada Canlı):", "Dynamic SQL Query (Reflects Live Path):"),
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF38BDF8)
+                        )
+                        
+                        Spacer(modifier = Modifier.height(6.dp))
+                        
+                        // SQL Source Block
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF1E293B), RoundedCornerShape(8.dp))
+                                .padding(12.dp)
+                        ) {
+                            Text(
+                                text = viewModel.postGisSqlOutput,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                color = Color(0xFFF1F5F9),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // GeoJSON Block
+                        Text(
+                            text = Loc.t(lang, "Üretilen GeoJSON Verisi (Standart Harita Çıktısı):", "Generated GeoJSON Format (Canonical Map Output):"),
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF34D399)
+                        )
+                        
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp)
+                                .background(Color(0xFF1E293B), RoundedCornerShape(8.dp))
+                                .verticalScroll(rememberScrollState())
+                                .padding(12.dp)
+                        ) {
+                            Text(
+                                text = viewModel.postGisGeoJsonOutput,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 10.sp,
+                                color = Color(0xFF94A3B8),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Server Execution Trigger
+                        Button(
+                            onClick = { viewModel.executePostGisQuery() },
+                            modifier = Modifier.fillMaxWidth().testTag("execute_postgis_query_btn"),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
+                            enabled = !viewModel.postGisQueryExecuting && viewModel.mapPoints.isNotEmpty()
+                        ) {
+                            if (viewModel.postGisQueryExecuting) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = Loc.t(lang, "PostgreSQL Sorgusu Yürütülüyor...", "Running pgSQL Spatial Planner..."),
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 11.sp
+                                )
+                            } else {
+                                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = Loc.t(lang, "PostGIS Motorunu Çalıştır (Mekansal Dizin)", "Run Spatial Query on PostgreSQL Client"),
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        // Terminal Log Output
+                        if (viewModel.postGisExecutionLog.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = Loc.t(lang, "Sorgu Yürütme Logları & Çıktısı:", "Query Execution Terminal Log:"),
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFA78BFA)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color(0xFF020617), RoundedCornerShape(6.dp))
+                                    .border(1.dp, Color(0xFF1E293B))
+                                    .padding(10.dp)
+                            ) {
+                                Text(
+                                    text = viewModel.postGisExecutionLog,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 10.sp,
+                                    color = Color(0xFFDDD6FE)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -927,7 +1311,7 @@ fun InteractiveMapScreen(viewModel: TravelStateViewModel) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(10.dp))
-                        Divider()
+                        HorizontalDivider()
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             Text(
@@ -969,98 +1353,237 @@ fun InteractiveMapScreen(viewModel: TravelStateViewModel) {
 @Composable
 fun NasreddinHodjaPortal(viewModel: TravelStateViewModel) {
     val lang = viewModel.currentLanguage
-    val stories = viewModel.repository.stories
+    val stories by viewModel.nasreddinStoriesState.collectAsState(initial = emptyList())
+    val lifeSections by viewModel.nasreddinLifeSectionsState.collectAsState(initial = emptyList())
+    var activeTab by remember { mutableStateOf(0) } // 0: Stories, 1: Biography
 
-    LazyColumn(
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .testTag("nasreddin_portal_root"),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .testTag("nasreddin_portal_root")
     ) {
-        // Wisdom header card
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-            ) {
-                Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Default.ChatBubbleOutline,
-                        contentDescription = "Quote",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(34.dp)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
+        // Sticky Elegant Tab Selector
+        TabRow(
+            selectedTabIndex = activeTab,
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.primary
+        ) {
+            Tab(
+                selected = activeTab == 0,
+                onClick = { activeTab = 0 },
+                text = { Text(Loc.t(lang, "Düşündüren Fıkralar", "Witty Stories"), fontWeight = FontWeight.Bold) },
+                icon = { Icon(Icons.Default.Book, contentDescription = "Stories") },
+                modifier = Modifier.testTag("portal_stories_tab")
+            )
+            Tab(
+                selected = activeTab == 1,
+                onClick = { activeTab = 1 },
+                text = { Text(Loc.t(lang, "Hoca'nın Hayatı", "His Biography"), fontWeight = FontWeight.Bold) },
+                icon = { Icon(Icons.Default.Psychology, contentDescription = "Biography") },
+                modifier = Modifier.testTag("portal_biography_tab")
+            )
+        }
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .weight(1f),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            if (activeTab == 0) {
+                // WISDOM OF THE DAY HEADER CARD
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.ChatBubbleOutline,
+                                contentDescription = "Quote",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(34.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = Loc.t(lang, "GÜNÜN NÜKTELİ SÖZÜ", "WISDOM OF THE DAY"),
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 11.sp,
+                                letterSpacing = 1.sp
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = Loc.t(
+                                    lang,
+                                    "\"Dostlar, her şeye tersten baksanız dahi, umutla yaşamaya devam edin; nehir kurusa da göl elbet maya tutar!\"",
+                                    "\"My friends, even if you look at everything backwards, do stay hopeful. If the rivers dry up, the lake might still turn into yogurt!\""
+                                ),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                                textAlign = TextAlign.Center,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+
+                item {
                     Text(
-                        text = Loc.t(lang, "GÜNÜN NÜKTELİ SÖZÜ", "WISDOM OF THE DAY"),
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Black,
-                        fontSize = 11.sp,
-                        letterSpacing = 1.sp
+                        text = Loc.t(lang, "Nasreddin Hoca Fıkraları Kütüphanesi", "Witty Stories Library"),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = Loc.t(
                             lang,
-                            "\"Dostlar, her şeye tersten baksanız dahi, umutla yaşamaya devam edin; nehir kurusa da göl elbet maya tutar!\"",
-                            "\"My friends, even if you look at everything backwards, do stay hopeful. If the rivers dry up, the lake might still turn into yogurt!\""
+                            "Mizah dolu, her biri hayat dersi veren SQLite veri tabanımızda kayıtlı fıkraları okuyun, dinleyin ve etkileşim kurun.",
+                            "Read, listen, and interact with tales saved under our SQLite database that yield witty wisdom."
                         ),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                        textAlign = TextAlign.Center,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-        }
-
-        item {
-            Text(
-                text = Loc.t(lang, "Nasreddin Hoca'dan Düşündüren Fıkralar", "Witty Tales & Wisdom"),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Text(
-                text = Loc.t(
-                    lang,
-                    "Gülümsetirken felsefe dersleri veren, asırları aşmış ünlü fıkraları okuyun ve inceleyin.",
-                    "Enjoy the ancient tales that make you laugh while delivering timeless philosophical lessons."
-                ),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        items(stories) { story ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { viewModel.selectedStory = story }
-                    .testTag("story_item_${story.id}"),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Book, contentDescription = "Story", tint = MaterialTheme.colorScheme.secondary)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = if (lang == AppLanguage.TR) story.titleTr else story.titleEn,
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Icon(Icons.Default.ChevronRight, contentDescription = "Read", tint = MaterialTheme.colorScheme.secondary)
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = if (lang == AppLanguage.TR) story.storyTr else story.storyEn,
-                        fontSize = 12.sp,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+
+                items(stories) { story ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { viewModel.selectedStory = story }
+                            .testTag("story_item_${story.storyId}"),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Book, 
+                                    contentDescription = "Story", 
+                                    tint = MaterialTheme.colorScheme.secondary
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = if (lang == AppLanguage.TR) story.titleTr else story.titleEn,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                
+                                // LIKED STATE INDICATOR
+                                if (story.isLiked) {
+                                    Icon(
+                                        imageVector = Icons.Default.Favorite, 
+                                        contentDescription = "Liked", 
+                                        tint = Color.Red,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                }
+                                // READ STATE INDICATOR
+                                if (story.isRead) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle, 
+                                        contentDescription = "Read", 
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                }
+                                
+                                Icon(
+                                    imageVector = Icons.Default.ChevronRight, 
+                                    contentDescription = "Read", 
+                                    tint = MaterialTheme.colorScheme.secondary
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = if (lang == AppLanguage.TR) story.storyTr else story.storyEn,
+                                fontSize = 12.sp,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            } else {
+                // BIOGRAPHY VIEW
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Psychology,
+                                contentDescription = "Biography",
+                                tint = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(40.dp)
+                            )
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column {
+                                Text(
+                                    text = Loc.t(lang, "BİR EFSANENİN HAYATI", "LIFE OF A LEGEND"),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                                Text(
+                                    text = Loc.t(lang, "Gülümseten Bilge Nasreddin Hoca", "Sage of Humorous Wisdom"),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
+                        }
+                    }
+                }
+
+                items(lifeSections) { sec ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("life_sec_${sec.sectionId}"),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(MaterialTheme.colorScheme.primaryContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "${sec.orderIndex}",
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = if (lang == AppLanguage.TR) sec.titleTr else sec.titleEn,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = if (lang == AppLanguage.TR) sec.contentTr else sec.contentEn,
+                                style = MaterialTheme.typography.bodyMedium,
+                                lineHeight = 20.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1069,6 +1592,8 @@ fun NasreddinHodjaPortal(viewModel: TravelStateViewModel) {
     // Story Dialog Viewer
     val activeStory = viewModel.selectedStory
     if (activeStory != null) {
+        var noteText by remember(activeStory.storyId) { mutableStateOf(activeStory.personalNotes) }
+
         AlertDialog(
             onDismissRequest = { viewModel.selectedStory = null },
             confirmButton = {
@@ -1077,13 +1602,27 @@ fun NasreddinHodjaPortal(viewModel: TravelStateViewModel) {
                 }
             },
             title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.AutoStories, contentDescription = "Story", tint = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (lang == AppLanguage.TR) activeStory.titleTr else activeStory.titleEn,
-                        fontWeight = FontWeight.Bold
-                    )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AutoStories, 
+                            contentDescription = "Story", 
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (lang == AppLanguage.TR) activeStory.titleTr else activeStory.titleEn,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
                 }
             },
             text = {
@@ -1092,6 +1631,42 @@ fun NasreddinHodjaPortal(viewModel: TravelStateViewModel) {
                         .verticalScroll(rememberScrollState())
                         .fillMaxWidth()
                 ) {
+                    // Dynamic Database Interactions: Likes and Reads
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = activeStory.isLiked,
+                            onClick = { viewModel.toggleStoryLike(activeStory.storyId, activeStory.isLiked) },
+                            label = { Text(Loc.t(lang, "Beğendim", "Liked")) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = if (activeStory.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                    contentDescription = "Like",
+                                    tint = if (activeStory.isLiked) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            modifier = Modifier.testTag("story_like_chip")
+                        )
+
+                        FilterChip(
+                            selected = activeStory.isRead,
+                            onClick = { viewModel.toggleStoryRead(activeStory.storyId, activeStory.isRead) },
+                            label = { Text(Loc.t(lang, "Okundu", "Read")) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "Read",
+                                    tint = if (activeStory.isRead) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            modifier = Modifier.testTag("story_read_chip")
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     Text(
                         text = if (lang == AppLanguage.TR) activeStory.storyTr else activeStory.storyEn,
                         style = MaterialTheme.typography.bodyMedium,
@@ -1128,13 +1703,50 @@ fun NasreddinHodjaPortal(viewModel: TravelStateViewModel) {
 
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    // PERSISTENT STORY NOTEPAD (Saves to Room Database)
+                    Text(
+                        text = Loc.t(lang, "Fıkra Hakkındaki Notlarım ve Yorumlarım", "My Notes & Reflections"),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = Loc.t(lang, "Yazılan notlar SQLite veritabanına kaydedilir.", "Your notes are saved permanently to the SQLite database."),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    OutlinedTextField(
+                        value = noteText,
+                        onValueChange = { noteText = it },
+                        placeholder = { Text(Loc.t(lang, "Bu fıkraya dair kendi yorumunuzu yazın...", "Write your own reflections on this tale...")) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(90.dp)
+                            .testTag("story_notes_field"),
+                        textStyle = MaterialTheme.typography.bodySmall,
+                        maxLines = 3
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Button(
+                        onClick = { viewModel.updateStoryPersonalNotes(activeStory.storyId, noteText) },
+                        modifier = Modifier
+                            .align(Alignment.End)
+                            .testTag("story_notes_save_btn"),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text(Loc.t(lang, "Notu Veritabanına Kaydet", "Save Note to Database"), fontSize = 11.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
                     // Simulated Audio story play
-                    val isPlayingThis = viewModel.activeAudioSource == activeStory.id && viewModel.isAudioPlaying
+                    val isPlayingThis = viewModel.activeAudioSource == activeStory.storyId && viewModel.isAudioPlaying
                     val playIcon = if (isPlayingThis) Icons.Default.PauseCircle else Icons.Default.PlayCircle
 
                     Button(
-                        onClick = { viewModel.toggleAudioPlayback(activeStory.id) },
-                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { viewModel.toggleAudioPlayback(activeStory.storyId) },
+                        modifier = Modifier.fillMaxWidth().testTag("story_audio_btn"),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                     ) {
                         Icon(playIcon, contentDescription = "Play Story")
@@ -1145,7 +1757,7 @@ fun NasreddinHodjaPortal(viewModel: TravelStateViewModel) {
                         )
                     }
 
-                    if (viewModel.activeAudioSource == activeStory.id) {
+                    if (viewModel.activeAudioSource == activeStory.storyId) {
                         Spacer(modifier = Modifier.height(10.dp))
                         LinearProgressIndicator(
                             progress = { viewModel.activeAudioProgress.toFloat() },
@@ -1323,6 +1935,7 @@ fun ProfileScreen(viewModel: TravelStateViewModel) {
     val user = viewModel.currentUser
     val isPremium = viewModel.isPremiumUser
     val cryptLogs = viewModel.encryptionDetailsText
+    val favoritePlacesList by viewModel.favoritePlacesState.collectAsState(initial = emptyList())
 
     LazyColumn(
         modifier = Modifier
@@ -1462,7 +2075,7 @@ fun ProfileScreen(viewModel: TravelStateViewModel) {
                         }
 
                         Spacer(modifier = Modifier.height(14.dp))
-                        Divider()
+                        HorizontalDivider()
                         Spacer(modifier = Modifier.height(8.dp))
 
                         // Security cryptography metadata display
@@ -1489,6 +2102,57 @@ fun ProfileScreen(viewModel: TravelStateViewModel) {
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                         ) {
                             Text(Loc.t(lang, "Oturumu Kapat", "Sign Out"))
+                        }
+                    }
+                }
+            }
+
+            if (favoritePlacesList.isNotEmpty()) {
+                item {
+                    Text(
+                        text = Loc.t(lang, "Favori Tarihi Mekanlarım", "My Favorite Spots"),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+
+                items(favoritePlacesList) { fav ->
+                    val p = viewModel.repository.places.firstOrNull { it.id == fav.placeId }
+                    if (p != null) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.selectedPlace = p }
+                                .testTag("fav_place_item_${p.id}"),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Favorite, contentDescription = "Liked", tint = Color.Red, modifier = Modifier.size(24.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = if (lang == AppLanguage.TR) p.nameTr else p.nameEn,
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                    Text(
+                                        text = p.audioDurationTr + " " + Loc.t(lang, "dk Sesli Anlatım", "min Audio Guide"),
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Icon(
+                                    imageVector = Icons.Default.ChevronRight,
+                                    contentDescription = "Details",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     }
                 }

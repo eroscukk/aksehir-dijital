@@ -97,6 +97,106 @@ class TravelRepository(private val travelDao: TravelDao) {
         return travelDao.getFavoritePlaceById(placeId) != null
     }
 
+    // --- NASREDDİN HODJA PORTAL ROOM PERSISTENCE ---
+    val nasreddinStories: Flow<List<NasreddinStoryEntity>> = travelDao.getAllStoriesFlow()
+    val nasreddinLifeSections: Flow<List<NasreddinLifeSectionEntity>> = travelDao.getAllLifeSectionsFlow()
+
+    suspend fun toggleStoryLike(id: String, liked: Boolean) {
+        travelDao.toggleStoryLike(id, liked)
+    }
+
+    suspend fun markStoryRead(id: String, read: Boolean) {
+        travelDao.markStoryRead(id, read)
+    }
+
+    suspend fun saveStoryNotes(id: String, notes: String) {
+        travelDao.updateStoryNotes(id, notes)
+    }
+
+    suspend fun populateNasreddinDatabaseIfEmpty() {
+        // Pre-populate core stories database with beautiful localized content
+        val sampleStories = listOf(
+            NasreddinStoryEntity(
+                storyId = "story_fermenting_lake",
+                titleTr = "Ya Tutarsa? (Göle Maya Çalmak)",
+                titleEn = "What if it Works? (Yeast in the Lake)",
+                storyTr = "Nasreddin Hoca bir gün elinde koca bir kase yoğurt mayasıyla gölün kıyısına inmiş. Kaşık kaşık mayayı göle dökmeye başlamış. Bunu gören köylüler şaşkınlıkla fırlayıp, 'Hoca Efendi, ne yapıyorsun? Koskoca göl maya tutar mı hiç?' demişler. Hoca tebessüm etmiş ve tarihe geçen o cevabı vermiş: 'Ben de bilirim tutmayacağını, ama ya tutarsa?'",
+                storyEn = "One day, Nasreddin Hodja went down to Akşehir lake with a large bowl of yogurt starter. He began spoonful by spoonful pouring it into the lake. Astounded, the villagers rushed to him and asked, 'Teacher, what on earth are you doing? Can a huge lake ever turn into yogurt?' Hodja smiled and replied, 'I know it won't, but what if it does?'",
+                wisdomTr = "Hoca bu fıkrasıyla bizlere her koşulda umutlu olmayı, hayal kurmaktan korkmamayı ve imkansız görünen hedeflere sevgiyle inanmayı öğütler.",
+                wisdomEn = "Hodja teaches us never to lose hope, to dare to dream, and to believe in impossible targets with deep faith and a joyous heart.",
+                audioDuration = "1:45"
+            ),
+            NasreddinStoryEntity(
+                storyId = "story_reverse_donkey",
+                titleTr = "Eşeğe Neden Ters Bindi?",
+                titleEn = "Riding the Donkey Backwards",
+                storyTr = "Bir gün Hoca eşeğine binerken yüzü arkaya, arkası öne gelecek şekilde binmiş. Cemaat şaşırmış: 'Hoca Efendi, eşeğe niye ters binersin? Arkası önü karıştırdın herhalde!' Hoca ise sakalını sıvazlamış ve 'Hayır, bilerek böyledir cemaat,' demiş. 'Eğer düz binip önden gitsem, siz arkada kalacaksınız ve arkam size dönecek; hürmetsizlik olacak. Eğer siz öne geçseniz, bu kez ben arkada kalıp sizi göremeyeceğim. En iyisi bu: ben ters biniyorum ki hem birlikte gidelim hem de göz göze sohbet edebilelim!'",
+                storyEn = "Once, Hodja mounted his donkey looking backward. The bewildered crowd asked: 'Teacher Hodja, why are you riding backward? Did you make a mistake?' Stroking his beard, Hodja said, 'Not at all, my friends. If I rode forward, my back would be towards you, which is disrespectful. If you went in front, I couldn't see you. Riding backwards is the absolute best way: compiled together, we go forward, yet stay face-to-face in friendly chat!'",
+                wisdomTr = "Karşılıklı saygı, iletişim ve empati kurmanın, dış görünüşten her zaman daha değerli olduğunu gösteren mizahi bir inceliktir.",
+                wisdomEn = "A gentle, hilarious lesson demonstrating that mutual respect, communication, and empathy are always more precious than external social appearances.",
+                audioDuration = "2:10"
+            ),
+            NasreddinStoryEntity(
+                storyId = "story_cauldron",
+                titleTr = "Kazan Doğurdu ve Kazan Öldü",
+                titleEn = "The Cauldron Gave Birth & Died",
+                storyTr = "Nasreddin Hoca bir gün komşusundan büyük bir bakır kazan ödünç almış. İşi bitince kazanın içine küçük bir tencere koyup iade etmiş. Komşusu 'Bu ne?' deyince, 'Komşu, müjde! Senin kazan bende kaldı, doğurdu!' demiş. Komşu sevinçle iki kabı da almış. Birkaç hafta sonra Hoca kazanı yine ödünç almış ama bu sefer uzun süre geri getirmemiş. Komşu kazanı istemeye gelince Hoca ağlamaya başlamış: 'Komşu başın sağ olsun, senin kazan öldü!' Komşu öfkeyle 'Hadi canım, kazan hiç ölür mü cansız şey?' deyince, Hoca 'Kazanın doğurduğuna inanıyorsun da öldüğüne neden inanmıyorsun?' demiş.",
+                storyEn = "Hodja borrowed a large copper cauldron from his neighbor. When returning it, he placed a small pot inside. Excitingly, he told the owner: 'Good news! Your cauldron gave birth at my place!' Delighted, the neighbor accepted both. Weeks later, Hodja borrowed it again but didn't return it. Visited by the neighbor, Hodja began weeping: 'So sorry, your cauldron has died!' Furious, the neighbor yelled, 'Nonsense! Can a cauldron ever die?' Hodja calmly replied, 'You believed it gave birth, why deny it when it dies?'",
+                wisdomTr = "İnsanların çıkarlarına uyan olayları kolayca kabullenip, çıkarlarına aykırı gerçekleri ise inkar etmelerindeki bencilliği vurucu bir zeka ile yüzleştirir.",
+                wisdomEn = "A brilliant exposition of human greed: how easily people accept events that satisfy their own self-interest, yet fiercely deny the natural laws when things go against them.",
+                audioDuration = "2:30"
+            ),
+            NasreddinStoryEntity(
+                storyId = "story_piper",
+                titleTr = "Parayı Veren Düdüğü Çalar",
+                titleEn = "He Who Pays the Piper Calls the Tune",
+                storyTr = "Hoca pazara doğru giderken çocuklar etrafını sarmış. Her biri: 'Hoca, bana pazardan oyuncak al,' 'Bana şeker al,' demişler. Ama içlerinden sadece biri Hoca'ya bir gümüş sikke uzatarak 'Pazardan bana bir düdük alıver,' demiş. Hoca akşam üzeri pazardan dönünce çocuklar kapıda toplanmış. Hoca elini cebine atmış ve parayı uzatan çocuğa düdüğü vermiş. Diğerleri şikayet edince, 'Eee çocuklar,' demiş, 'Parayı veren düdüğü çalar!'",
+                storyEn = "As Hodja headed to the marketplace, children crowded around him, requesting toys, sweets, and whistles. But only one boy handed him a silver coin, asking for a whistle. At dusk, as Hodja returned, the children flocked around him. Hodja reached into his pocket and handed the whistle only to the boy who paid. When others complained, Hodja famously declared, 'Well, children, he who pays the copper silver gets the whistle!'",
+                wisdomTr = "Emek verilmeden elde edilmeye çalışılan beklentilerin anlamsızlığını ve adaletin ancak sorumluluk bilinciyle sağlanabileceğini mizahi bir dille söyler.",
+                wisdomEn = "A classic instruction showing that expectations without real investments or efforts are empty, and justice can only be maintained with absolute responsibility.",
+                audioDuration = "1:50"
+            )
+        )
+
+        val sampleLifeSections = listOf(
+            NasreddinLifeSectionEntity(
+                sectionId = "life_intro",
+                orderIndex = 1,
+                titleTr = "Nasreddin Hoca Kimdir?",
+                titleEn = "Who is Nasreddin Hodja?",
+                contentTr = "Nasreddin Hoca, 13. yüzyılda Akşehir'de yaşamış, Türk-İslam kültürünün en büyük mizah ve felsefe bilgesidir. Hazırcevaplığı, keskin zekası ve insan doğasını çok iyi tahlil etmesiyle tanınır. Hikayeleri sadece güldürmez, derin bir tefekkür ve sosyolojik eleştiri barındırır.",
+                contentEn = "Nasreddin Hodja was a legendary philosopher, sage, and humorist of the 13th century who lived in Akşehir. Known for his sharp wit, quick comebacks, and understanding of human psychology, his tales do not just offer a laugh but a profound philosophical reflection."
+            ),
+            NasreddinLifeSectionEntity(
+                sectionId = "life_aksehir",
+                orderIndex = 2,
+                titleTr = "Akşehir ile Olan Ebedi Bağı",
+                titleEn = "Eternal Bond with Akşehir",
+                contentTr = "Nasreddin Hoca hayatının büyük bir bölümünü eğitimci, kadı ve bilge olarak Konya'nın Akşehir ilçesinde geçirmiştir. Akşehir, Hoca'nın meşhur göle maya çaldığı, kadılık görevleri yürüttüğü ve meşhur fıkralarının geçtiği ana merkezdir. O, adeta Akşehir toprağıyla bütünleşmiştir.",
+                contentEn = "Nasreddin Hodja spent the most meaningful parts of his life as an educator, judge, and philosopher in Akşehir, Konya. Akşehir is the very cradle of his legendary legacy, where he fermented the lake, performed his judicial duties, and left his footprints on history."
+            ),
+            NasreddinLifeSectionEntity(
+                sectionId = "life_philosophy",
+                orderIndex = 3,
+                titleTr = "Gülmece ve Düşünce Felsefesi",
+                titleEn = "Philosophy of Humor & Wit",
+                contentTr = "Hoca'nın felsefesi 'gülümserken öğrenmek' üzerine kuruludur. İnsanların kibirlerini, hırslarını, bencil yönlerini ve mantık hatalarını incitmeden, ironi ve mizah yoluyla yüzlerine vurur. Bu yüzden fıkraları yüzyıllardır evrensel değerini yitirmemiş, dünya edebiyatında yer edinmiştir.",
+                contentEn = "Hodja's philosophy is built upon 'intellectual humor'. He highlights human vanity, greed, and logical errors through clean irony and soft laughter. This gentle exposure makes his stories globally acclaimed and appreciated for centuries across continents."
+            ),
+            NasreddinLifeSectionEntity(
+                sectionId = "life_tomb",
+                orderIndex = 4,
+                titleTr = "Akşehir'deki Dünyaca Ünlü Türbe",
+                titleEn = "The World-Famous Satirical Tomb",
+                contentTr = "Hoca'nın Akşehir'deki türbesi, felsefesinin en büyük fiziki yansımasıdır. Türbenin ana girişinde devasa bir asma kilit taşıyan demir bir kapı bulunur, ancak kapının geri kalan duvarları tamamen açıktır! Bu, dünyaya kapalı ama zihne her zaman açık olmayı simgeler.",
+                contentEn = "His tomb in Akşehir physically embodies his lifelong satire. The front gate of the tomb boasts a giant padlock, yet the surrounding walls are non-existent and completely open. This hilarious architectural marvel conveys that while rules can lock a door, a free mind can bypass any wall."
+            )
+        )
+
+        travelDao.insertStories(sampleStories)
+        travelDao.insertLifeSections(sampleLifeSections)
+    }
+
     // --- STATIC AUTHENTIC AKŞEHİR TRAVEL DATASET ---
 
     val places = listOf(

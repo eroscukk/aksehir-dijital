@@ -5,7 +5,16 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [FavoriteRouteEntity::class, FavoritePlaceEntity::class], version = 1, exportSchema = false)
+@Database(
+    entities = [
+        FavoriteRouteEntity::class, 
+        FavoritePlaceEntity::class,
+        NasreddinStoryEntity::class,
+        NasreddinLifeSectionEntity::class
+    ], 
+    version = 2, 
+    exportSchema = false
+)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun travelDao(): TravelDao
 
@@ -19,7 +28,9 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "aksehir_travel_db"
-                ).build()
+                )
+                .fallbackToDestructiveMigration()
+                .build()
                 INSTANCE = instance
                 instance
             }

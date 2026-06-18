@@ -22,3 +22,29 @@ data class FavoritePlaceEntity(
     val isFavorite: Boolean = true,
     val note: String = ""
 )
+
+@Entity(tableName = "nasreddin_stories")
+data class NasreddinStoryEntity(
+    @PrimaryKey val storyId: String,
+    val titleTr: String,
+    val titleEn: String,
+    val storyTr: String,
+    val storyEn: String,
+    val wisdomTr: String,
+    val wisdomEn: String,
+    val audioDuration: String = "1:45",
+    val isLiked: Boolean = false,
+    val isRead: Boolean = false,
+    val personalNotes: String = ""
+)
+
+@Entity(tableName = "nasreddin_life_sections")
+data class NasreddinLifeSectionEntity(
+    @PrimaryKey val sectionId: String,
+    val orderIndex: Int,
+    val titleTr: String,
+    val titleEn: String,
+    val contentTr: String,
+    val contentEn: String
+)
+
