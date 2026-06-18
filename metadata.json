@@ -1,0 +1,6 @@
+{
+  "name": "Akşehir Rehberi",
+  "description": "Akşehir Gezi Rehberi, Nasreddin Hoca Portalı, Yemek Rehberi ve İnteraktif Rota Oluşturucu ile Çevrimdışı Akıllı Seyahat Deneyimi.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
